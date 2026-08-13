@@ -174,9 +174,13 @@ def evaluate_skip_marks(item: Item) -> Skip | None:
         else:
             conditions = (mark.kwargs["condition"],)
 
+        try:
+            reason = mark.kwargs["reason"]
+        except KeyError:
+            reason = ""
+
         # Unconditional.
         if not conditions:
-            reason = mark.kwargs.get("reason", "")
             return Skip(reason)
 
         # If any of the conditions are true.
