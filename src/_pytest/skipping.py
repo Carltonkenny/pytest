@@ -190,10 +190,6 @@ def evaluate_skip_marks(item: Item) -> Skip | None:
                 return Skip(reason)
 
     for mark in item.iter_markers(name="skip"):
-        if mark.kwargs:
-            raise TypeError(
-                "skip() got unexpected keyword argument" + repr(tuple(mark.kwargs))
-            )
         try:
             return Skip(*mark.args, **mark.kwargs)
         except TypeError as e:
