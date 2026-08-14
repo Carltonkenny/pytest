@@ -548,7 +548,9 @@ def test_visit_ignores_errors(tmp_path: Path) -> None:
     ] == ["bar", "foo"]
 
 
-def test_samefile_nofollow_zero_inode(monkeypatch: MonkeyPatch) -> None:
+def test_samefile_nofollow_zero_inode(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
     """
     samefile_nofollow() should fall back to path equality when ``st_ino`` is 0
     (#14864).
@@ -559,27 +561,31 @@ def test_samefile_nofollow_zero_inode(monkeypatch: MonkeyPatch) -> None:
         def __init__(self, ino: int) -> None:
             self.st_ino = ino
 
-    p1 = Path("/some/path")
-    p2 = Path("/some/path")
+    # Use real files under tmp_path so the test exercises actual paths.
+    p1 = tmp_path / "some_file"
+    p1.write_text("data", encoding="utf-8")
+    p2 = tmp_path / "some_file"
+    assert p1 == p2  # same path under tmp_path
+
+    p3 = tmp_path / "other_file"
+    p3.write_text("data", encoding="utf-8")
+
+    # case differences on Windows should be normalized away.
+    if sys.platform.startswith("win"):
+        p_upper = tmp_path / "Some_File"
+        p_upper.write_text("data", encoding="utf-8")
+        p_lower = tmp_path / "some_file"
+        assert samefile_nofollow(p_upper, p_lower) is True
 
     monkeypatch.setattr(Path, "lstat", lambda self: _Stat(0))
-    # os.path.samestat should NOT be consulted when ino is 0; if it is, the
-    # test will raise because Path equality already returned True and we never
-    # got there.
+    # os.path.samestat should NOT be consulted when ino is 0.
     monkeypatch.setattr(
         "os.path.samestat", lambda *a, **kw: pytest.fail("samestat was called")
     )
     assert samefile_nofollow(p1, p2) is True
 
     # Different paths should not compare equal when ino is 0.
-    p3 = Path("/some/other/path")
     assert samefile_nofollow(p1, p3) is False
-
-    # case differences on Windows should be normalized away.
-    if sys.platform.startswith("win"):
-        p_upper = Path("C:/Some/Path")
-        p_lower = Path("c:/some/path")
-        assert samefile_nofollow(p_upper, p_lower) is True
 
 
 @pytest.mark.skipif(not sys.platform.startswith("win"), reason="Windows only")
