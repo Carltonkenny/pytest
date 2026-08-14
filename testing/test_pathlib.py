@@ -548,6 +548,30 @@ def test_visit_ignores_errors(tmp_path: Path) -> None:
     ] == ["bar", "foo"]
 
 
+def test_samefile_nofollow_zero_inode(monkeypatch: MonkeyPatch) -> None:
+    """
+    samefile_nofollow() should fall back to path equality when ``st_ino`` is 0
+    (#14864).
+    """
+    from _pytest.pathlib import samefile_nofollow
+
+    class _Stat:
+        def __init__(self, ino: int) -> None:
+            self.st_ino = ino
+
+    p1 = Path("/some/path")
+    p2 = Path("/some/path")
+
+    monkeypatch.setattr(Path, "lstat", lambda self: _Stat(0))
+    # os.path.samestat should NOT be consulted when ino is 0; if it is, the
+    # test will raise because Path.__eq__ already returned True and we never
+    # got there.
+    monkeypatch.setattr(
+        "os.path.samestat", lambda *a, **kw: pytest.fail("samestat was called")
+    )
+    assert samefile_nofollow(p1, p2) is True
+
+
 @pytest.mark.skipif(not sys.platform.startswith("win"), reason="Windows only")
 def test_samefile_false_negatives(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     """
