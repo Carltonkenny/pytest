@@ -1098,8 +1098,12 @@ def samefile_nofollow(p1: Path, p2: Path) -> bool:
     s1 = p1.lstat()
     s2 = p2.lstat()
     # On some filesystems (e.g. Windows network drives), ``st_ino`` may be 0,
-    # which makes ``os.path.samestat`` unreliable. Fall back to plain path
-    # equality in that case so that callers can still detect same-file.
+    # which makes ``os.path.samestat`` unreliable. Fall back to comparing
+    # resolved paths in that case so that callers can still detect same-file
+    # even when the paths differ by case, trailing separators, or 8.3 short
+    # names vs. long names (#14864).
     if s1.st_ino == 0 or s2.st_ino == 0:
-        return Path(p1) == Path(p2)
+        return os.path.normcase(os.path.normpath(str(p1))) == os.path.normcase(
+            os.path.normpath(str(p2))
+        )
     return os.path.samestat(s1, s2)

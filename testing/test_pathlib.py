@@ -564,12 +564,22 @@ def test_samefile_nofollow_zero_inode(monkeypatch: MonkeyPatch) -> None:
 
     monkeypatch.setattr(Path, "lstat", lambda self: _Stat(0))
     # os.path.samestat should NOT be consulted when ino is 0; if it is, the
-    # test will raise because Path.__eq__ already returned True and we never
+    # test will raise because Path equality already returned True and we never
     # got there.
     monkeypatch.setattr(
         "os.path.samestat", lambda *a, **kw: pytest.fail("samestat was called")
     )
     assert samefile_nofollow(p1, p2) is True
+
+    # Different paths should not compare equal when ino is 0.
+    p3 = Path("/some/other/path")
+    assert samefile_nofollow(p1, p3) is False
+
+    # case differences on Windows should be normalized away.
+    if sys.platform.startswith("win"):
+        p_upper = Path("C:/Some/Path")
+        p_lower = Path("c:/some/path")
+        assert samefile_nofollow(p_upper, p_lower) is True
 
 
 @pytest.mark.skipif(not sys.platform.startswith("win"), reason="Windows only")
